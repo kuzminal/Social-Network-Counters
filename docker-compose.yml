@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  trace:
+    image: jaegertracing/all-in-one:1.47.0
+    restart: on-failure
+    networks:
+      - counters
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+      - "14268:14268"
+
+  counters:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    deploy:
+      replicas: 1
+    entrypoint: /usr/bin/counters
+    restart: on-failure
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.social.rule=Host(`localhost`)"
+#      - "traefik.http.routers.social.rule=PathPrefix(`/user`) || PathPrefix(`/login`) || PathPrefix(`/post`) || PathPrefix(`/friend`)"
+#      - "traefik.http.routers.social.entrypoints=web"
+    networks:
+      - counters
+    environment:
+      - PGHOST=mastersoc
+      - PGPORT=5432
+      - PGUSER=user
+      - PGPASSWORD=password
+      - PGDBNAME=social
+      - MIGR_DIR=/usr/bin/migrations
+      # можно указать мастера в качестве слэйва если не настроена репликация и не поднимать еще два контейнера с БД
+      #- SLAVE_HOST_PORT=db:5432
+      - SLAVE_HOST_PORT=tarantool_master:3301,tarantool_slave:3301
+      - TARANTOOL_HOST=tarantool_master
+      - TARANTOOL_USER=user
+      - TARANTOOL_PASSWORD=password
+      - RABBIT_HOST=rabbitmq
+      - RABBIT_USER=user
+      - RABBIT_PASSWORD=password
+      - KAFKA_BROKER_HOST=kafka
+      - PG_SLAVE_HOST=balancer
+      - PG_SLAVE_PORT=5000
+    ports:
+      - "9080-9082:8080"
+      - "50051-50053:50051"
+    depends_on:
+      - tarantool_master
+
+  tarantool_master:
+    build:
+      dockerfile: Dockerfile
+      context: ./tarantool
+    image: tarantool/tarantool:2.11.0
+    restart: always
+    networks:
+      - counters
+    environment:
+      - TARANTOOL_USER_NAME=user
+      - TARANTOOL_USER_PASSWORD=password
+    ports:
+      - "3301-3305:3301"
+
+  tarantool_slave:
+    build:
+      dockerfile: Dockerfile
+      context: ./tarantool
+    restart: always
+    networks:
+      - counters
+    environment:
+      - TARANTOOL_USER_NAME=user
+      - TARANTOOL_USER_PASSWORD=password
+      - TARANTOOL_REPLICATION=user:password@tarantool_master:3301
+    ports:
+      - "3301-3305:3301"
+
+  kafka:
+    image: docker.io/bitnami/kafka:3.5
+    networks:
+      - counters
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    volumes:
+      - "kafka_data:/bitnami"
+    environment:
+      - KAFKA_KRAFT_CLUSTER_ID=9If7zzYGTzWiPVrDr23nVA
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    restart: "no"
+    networks:
+      - counters
+    ports:
+      - "9900:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:9092"
+      JVM_OPTS: "-Xms16M -Xmx48M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify"
+    depends_on:
+      - "kafka"
+
+volumes:
+  kafka_data:
+    driver: local
+
+networks:
+  counters:
+
