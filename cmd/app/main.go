@@ -25,7 +25,7 @@ var (
 func main() {
 	port := helper.GetEnvValue("PORT", "8080")
 
-	traceServer := helper.GetEnvValue("TRACE_SERVER", "trace")
+	traceServer := helper.GetEnvValue("TRACE_SERVER", "localhost")
 	tracePort := helper.GetEnvValue("TRACE_PORT", "14268")
 	tracer, err := tracing.TracerProvider(fmt.Sprintf("http://%s:%s/api/traces", traceServer, tracePort))
 	if err != nil {
@@ -55,13 +55,16 @@ func main() {
 }
 
 func initTarantoolDb() {
-	thost := helper.GetEnvValue("TARANTOOL_HOST", "localhost")
-	tport := helper.GetEnvValue("TARANTOOL_PORT", "3301")
-	tuser := helper.GetEnvValue("TARANTOOL_USER_NAME", "user")
-	tpassword := helper.GetEnvValue("TARANTOOL_USER_PASSWORD", "password")
-	tarantoolMaster, _ = tarantool.NewTarantoolMaster(thost, tport, tuser, tpassword)
-	//TODO инициализировать настоящий слэйв
-	tarantoolSlave, _ := tarantool.NewTarantoolMaster(thost, tport, tuser, tpassword)
+	tMasterHost := helper.GetEnvValue("TARANTOOL_MASTER_HOST", "localhost")
+	tMasterPort := helper.GetEnvValue("TARANTOOL_MASTER_PORT", "3301")
+	tMasterUser := helper.GetEnvValue("TARANTOOL_MASTER_USER_NAME", "user")
+	tMasterPassword := helper.GetEnvValue("TARANTOOL_MASTER_USER_PASSWORD", "password")
+	tarantoolMaster, _ = tarantool.NewTarantoolMaster(tMasterHost, tMasterPort, tMasterUser, tMasterPassword)
+	tSlaveHost := helper.GetEnvValue("TARANTOOL_SLAVE_HOST", "localhost")
+	tSlavePort := helper.GetEnvValue("TARANTOOL_SLAVE_PORT", "3301")
+	tSlaveUser := helper.GetEnvValue("TARANTOOL_SLAVE_USER_NAME", "user")
+	tSlavePassword := helper.GetEnvValue("TARANTOOL_SLAVE_USER_PASSWORD", "password")
+	tarantoolSlave, _ := tarantool.NewTarantoolMaster(tSlaveHost, tSlavePort, tSlaveUser, tSlavePassword)
 	nodes := []store.Backend[store.CountersStore]{
 		{
 			Id:     uuid.Must(uuid.NewV4()).String(),

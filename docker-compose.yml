@@ -19,11 +19,11 @@ services:
       replicas: 1
     entrypoint: /usr/bin/counters
     restart: on-failure
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.social.rule=Host(`localhost`)"
-#      - "traefik.http.routers.social.rule=PathPrefix(`/user`) || PathPrefix(`/login`) || PathPrefix(`/post`) || PathPrefix(`/friend`)"
-#      - "traefik.http.routers.social.entrypoints=web"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.social.rule=Host(`localhost`)"
+      - "traefik.http.routers.social.rule=PathPrefix(`/messages`)"
+      - "traefik.http.routers.social.entrypoints=web"
     networks:
       - counters
     environment:
@@ -49,9 +49,9 @@ services:
       - "9080-9082:8080"
       - "50051-50053:50051"
     depends_on:
-      - tarantool_master
+      - tarantool_counters_master
 
-  tarantool_master:
+  tarantool_counters_master:
     build:
       dockerfile: Dockerfile
       context: ./tarantool
@@ -65,7 +65,7 @@ services:
     ports:
       - "3301-3305:3301"
 
-  tarantool_slave:
+  tarantool_counters_slave:
     build:
       dockerfile: Dockerfile
       context: ./tarantool
